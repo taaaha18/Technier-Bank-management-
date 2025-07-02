@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from datetime import datetime 
+from datetime import datetime   
 
 class BankAccount:
     def __init__(self, account_number, name, password, balance=0.0, transactions=None):
@@ -9,10 +9,7 @@ class BankAccount:
         self.name = name
         self.password = password
         self.balance = balance
-        if transactions is None:
-            self.transactions = []
-        else:
-            self.transactions = transactions
+        self.transactions = transactions if transactions else []
 
     def deposit(self, amount):
         self.balance += amount
@@ -25,6 +22,7 @@ class BankAccount:
     def withdraw(self, amount):
         if amount > self.balance:
             print("Insufficient funds")
+            return False
         else:
             self.balance -= amount
             self.transactions.append({
@@ -32,15 +30,13 @@ class BankAccount:
                 'amount': amount,
                 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
+            return True
 
     def check_balance(self):
         return self.balance
 
     def getTransactionsHistory(self, n):
-        if n <= len(self.transactions):
-            return self.transactions[-n:]
-        else:
-            return self.transactions
+        return self.transactions[-n:] if n <= len(self.transactions) else self.transactions
 
     @staticmethod
     def from_dict(data):
@@ -49,150 +45,115 @@ class BankAccount:
             data["name"],
             data["password"],
             data["balance"],
-            data["transactions"],
+            data["transactions"]
         )
 
     def toDict(self):
-      return{
-          "account_number":self.account_number,
-           "name":self.name,
-           "password":self.password ,
-           "balance":self.balance,
-            "transactions":self.transactions}
-    
-class BankSystem:
-        def __init__(self):
-            self.accounts = {}
-            self.load_accounts()   
+        return {
+            "account_number": self.account_number,
+            "name": self.name,
+            "password": self.password,
+            "balance": self.balance,
+            "transactions": self.transactions
+        }
 
-        def load_accounts(self ):
-            files=os.listdir()
-            max_number=999
-            for filename in files:
-                if filename.startswith("account_") and filename.endswith(".json"):
-                    try:
-                        match=re.findall("account_(\\d+)\\.json", filename)
-                        if match:
-                            acc_num=int(match[0])
-                            files=(open(filename, "r"))
-                            data = json.load(files)
-                            files.close()
-                            account= BankAccount.from_dict(data)
-                            self.accounts[acc_num] = account
-                            if acc_num > max_number:
-                              max_number = acc_num
-                    except Exception as e:
-                        print("Error loading account from" + filename +str(e))
+class Bank_DB:
+    def __init__(self):
+        self.next_acc_no = 1000
+        self.loadFile()
 
-        def save_account(self, account):
-            filename="account_" + str(account).account_number + ".json"
-            f=open(filename,"w")
-            json.dump(account.toDict(),f,indent=4)
-            f.close()
+    def loadFile(self):
+        files = os.listdir()
+        self.next_account_number = self.next_acc_no
+        for file in files:
+            if re.match(r"accounts_\d+\.json", file):
+                acc_no = int(re.search(r"accounts_(\d+)\.json", file).group(1))
+                if acc_no >= self.next_account_number:
+                    self.next_account_number = acc_no + 1
 
-        def load_account(self, account_number):
-           filename="account_" +str(account_number) + ".json"
-           try:
-               f=open(filename,"r")
-               data=json.load()
-               f.close()
-               account=BankAccount.from_dict(data)
-               self.accounts[account_number]=account
-               return account
-           except Exception as e:
-                print("Error loading account:", str(e))
-                return None
-               
-               
-                
+    def add_account(self, account):
+        fileName = f"accounts_{account.account_number}.json"
+        with open(fileName, 'w') as f:
+            json.dump(account.toDict(), f, indent=4)
+        self.next_account_number += 1
 
-        def login(self, account_number, password):
-          if account_number in self.accounts:
-            account = self.accounts[account_number]
-          else:
-            account = self.load_account(account_number)
+    def get_account(self, account_number):
+        fileName = f"accounts_{account_number}.json"
+        if os.path.exists(fileName):
+            with open(fileName, 'r') as f:
+                data = json.load(f)
+                return BankAccount.from_dict(data)
+        else:
+            print("Account not found")
+            return None
 
-          if account is not None and account.password == password:
-           print("Welcome back,", account.name)
-           return account
-          else:
-           print("Invalid account number or password")
-           return None
-                  
+    def save_account(self, account):
+        fileName = f"accounts_{account.account_number}.json"
+        with open(fileName, 'w') as f:
+            json.dump(account.toDict(), f, indent=4)
 
-        
-        def create_account(self, name, password, balance):
-           account = BankAccount(self.next_account_number, name, password, balance)
-           self.accounts[self.next_account_number] = account
-           self.save_account(account)
-           print("Account created. Your account number is", account.account_number)
-           self.next_account_number = self.next_account_number + 1
-      
+class Bank:
+    def __init__(self):
+        self.db = Bank_DB()
 
+    def create_account(self):
+        name = input("Name: ")
+        pwd = input("Password: ")
+        balance = float(input("Initial Deposit: "))
+        acc_no = self.db.next_account_number
+        acc = BankAccount(acc_no, name, pwd, balance)
+        self.db.add_account(acc)
+        print("Account created with number:", acc_no)  
+
+    def login(self):
+        acc_no = int(input("Account No: "))
+        pwd = input("Password: ")
+        acc = self.db.get_account(acc_no)
+        if acc and acc.password == pwd:
+            print("Welcome,", acc.name)
+            self.account_menu(acc)
+        else:
+            print("Login failed.")     
+
+    def account_menu(self, acc):
+        while True:
+            print("\n1. Deposit\n2. Withdraw\n3. Check Balance\n4. Last N Transactions\n5. Change Passowrd\n6. Logout")
+            ch = input("Choose: ")
+            if ch == '1':
+                amt = float(input("Amount: "))
+                acc.deposit(amt)
+                self.db.save_account(acc)
+            elif ch == '2':
+                amt = float(input("Amount: "))
+                if acc.withdraw(amt):
+                    self.db.save_account(acc)
+            elif ch == '3':
+                print("Your Balance is:", acc.check_balance())
+            elif ch == '4':
+                n = int(input("How many numbers of history do you want? "))
+                for t in acc.getTransactionsHistory(n):
+                    print(t)
+            elif ch=='6':
+                new_pwd = input("Enter New Password: ")
+                acc.password = new_pwd
+                self.db.save_account(acc)
+                print("Password changed successfully.")        
+            elif ch == '5':
+                break
+
+    def run(self):
+        while True:
+            print("\n1. Create Account\n2. Login\n3. Exit")
+            ch = input("Choose: ")
+            if ch == '1':
+                self.create_account()
+            elif ch == '2':
+                self.login()
+            elif ch == '3':
+                break
 
 def main():
-    bank = BankSystem()
-
-    while True:
-        print("\nMain Menu")
-        print("1. Create Account")
-        print("2. Login")
-        print("3. Exit")
-
-        choice = input("Select an option: ")
-
-        if choice == '1':
-            name = input("Enter your name: ")
-            password = input("Set a password: ")
-            balance = float(input("Enter opening balance: "))
-            bank.create_account(name, password, balance)
-
-        elif choice == '2':
-            acc_no = int(input("Enter your account number: "))
-            pwd = input("Enter password: ")
-            user = bank.login(acc_no, pwd)
-
-            if user is not None:
-                while True:
-                    print("\nAccount Menu")
-                    print("1. Deposit")
-                    print("2. Withdraw")
-                    print("3. Check Balance")
-                    print("4. View Last N Transactions")
-                    print("5. Logout")
-
-                    option = input("Choose an option: ")
-
-                    if option == '1':
-                        amt = float(input("Amount to deposit: "))
-                        user.deposit(amt)
-                        bank.save_account(user)
-
-                    elif option == '2':
-                        amt = float(input("Amount to withdraw: "))
-                        user.withdraw(amt)
-                        bank.save_account(user)
-
-                    elif option == '3':
-                        print("Balance:", user.check_balance())
-
-                    elif option == '4':
-                        n = int(input("How many recent transactions? "))
-                        txns = user.getTransactionsHistory(n)
-                        for t in txns:
-                            print(t)
-
-                    elif option == '5':
-                        print("Logged out.")
-                        break
-
-                    else:
-                        print("Invalid option")
-
-        elif choice == '3':
-            print("Thank you for using the Bank System!")
-            break
-        else:
-            print("Invalid choice. Try again.")
+    b = Bank()
+    b.run()
 
 main()
