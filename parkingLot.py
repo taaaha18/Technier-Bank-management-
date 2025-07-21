@@ -7,116 +7,149 @@ Original file is located at
     https://colab.research.google.com/drive/1JWYIKWlDcF9fMTt4LFky8SjC5RQ_JyLw
 """
 
-class vehicle:
-    def __init__(self, num, type):
-        self.reg_num = num
-        self.type = type
+class Vehicle:
+    def __init__(self, reg_num, vehicle_type):
+        self.reg_num = reg_num
+        self.type = vehicle_type
 
 
-class queue:
+class Queue:
     def __init__(self):
         self.items = []
 
-    def eque(self, vehicle):
+    def enqueue(self, vehicle):
         self.items.append(vehicle)
 
-    def deque(self):
-        if not self.isempty():
-             return self.items.pop(0)
-        else None
+    def dequeue(self):
+        if not self.is_empty():
+            return self.items.pop(0)
+        else:
+            return None
 
-    def isempty(self):
-       if len(self.items) == 0:
+    def is_empty(self):
+        if len(self.items) == 0:
           return True
-       else:
-         return False
+        else:
+          return False  
 
 
-
-class parkingSlot:
-    def __init__(self, id, type):
-        self.slot_id = id
-        self.type = type
-        self.isAvalable = True
+class ParkingSlot:
+    def __init__(self, slot_id, vehicle_type):
+        self.slot_id = slot_id
+        self.type = vehicle_type
+        self.is_available = True
         self.vehicle = None
 
-    def assignV(self, vec):
-        self.isAvalable = False
-        self.vehicle = vec
+    def assign_vehicle(self, vehicle):
+        self.is_available = False
+        self.vehicle = vehicle
 
-    def removeV(self):
-        self.isAvalable = True
+    def remove_vehicle(self):
+        self.is_available = True
         self.vehicle = None
 
 
 class ParkingLot:
-    def __init__(self, c, b, t):
+    def __init__(self, car_count, bike_count, truck_count):
+        self.allowed_types = {"car", "bike", "truck"}
         self.slots = {"car": [], "bike": [], "truck": []}
-        self.occ = {}
-        self.waitQ = {"car": queue(), "bike": queue(), "truck": queue()}
-        self.initialize(c, b, t)
+        self.occupied_slots = {}
+        self.waiting_queues = {
+            "car": Queue(),
+            "bike": Queue(),
+            "truck": Queue()
+        }
+        self.initialize_slots(car_count, bike_count, truck_count)
 
-    def initialize(self, c, b, t):
-        count = 1
-        for i in range(c):
-            self.slots['car'].append(parkingSlot(count, "car"))
-            count += 1
-        for i in range(b):
-            self.slots['bike'].append(parkingSlot(count, "bike"))
-            count += 1
-        for i in range(t):
-            self.slots['truck'].append(parkingSlot(count, "truck"))
-            count += 1
+    def initialize_slots(self, car_count, bike_count, truck_count):
+        slot_id = 1
+        for i in range(car_count):
+            self.slots["car"].append(ParkingSlot(slot_id, "car"))
+            slot_id += 1
+        for i in range(bike_count):
+            self.slots["bike"].append(ParkingSlot(slot_id, "bike"))
+            slot_id += 1
+        for i in range(truck_count):
+            self.slots["truck"].append(ParkingSlot(slot_id, "truck"))
+            slot_id += 1
 
-    def parkvehicle(self, vehicle):
-        for slot in self.slots[vehicle.type]:
-            if slot.isAvalable:
-                slot.assignV(vehicle)
-                self.occ[slot.slot_id] = slot
-                print("The vehicle is parked successfully.")
-                return
-        print("No available slot, added to waiting queue.")
-        self.waitQ[vehicle.type].eque(vehicle)
-
-    def removeV(self, id):
-        if id not in self.occ:
-            print("No vehicle found in the given slot.")
+    def park_vehicle(self, vehicle):
+        if vehicle.type not in self.allowed_types:
+            print("Error: Invalid vehicle type '" + vehicle.type + "'. Allowed types are car, bike, and truck.")
             return
-        slot = self.occ.pop(id)
-        v_type = slot.type
-        slot.removeV()
 
-        if not self.waitQ[v_type].isempty():
-            vec = self.waitQ[v_type].deque()
-            slot.assignV(vec)
-            self.occ[slot.slot_id] = slot
-            print(f"Vehicle {vec.reg_num} from waiting queue parked at Slot {slot.slot_id}.")
+        for slot in self.slots[vehicle.type]:
+            if slot.is_available:
+                slot.assign_vehicle(vehicle)
+                self.occupied_slots[slot.slot_id] = slot
+                print("The vehicle " + vehicle.reg_num + " is parked successfully at slot " + str(slot.slot_id) )
+                return
 
-    def getDetail(self):
-        print("Parking Slot Details are as follows:")
-        for v_type, slotList in self.slots.items():
-            print(f"\nType: {v_type.upper()}")
-            for slot in slotList:
-                if slot.isAvalable:
-                    print(f"{slot.slot_id}: [Available]")
+        print("No available slot for " + vehicle.type + ". Vehicle " + vehicle.reg_num + " added to waiting queue.")
+        self.waiting_queues[vehicle.type].enqueue(vehicle)
+
+    def remove_vehicle(self, slot_id):
+        if slot_id not in self.occupied_slots:
+            print("Error: Slot " + str(slot_id) + " is not occupied or does not exist.")
+            return
+
+        slot = self.occupied_slots.pop(slot_id)
+        vehicle_type = slot.type
+        slot.remove_vehicle()
+        print("Vehicle removed from slot " + str(slot_id) + ".")
+
+        if not self.waiting_queues[vehicle_type].is_empty():
+            vehicle = self.waiting_queues[vehicle_type].dequeue()
+            slot.assign_vehicle(vehicle)
+            self.occupied_slots[slot.slot_id] = slot
+            print("Vehicle " + vehicle.reg_num + " from waiting queue parked at slot " + str(slot.slot_id) )
+
+    def get_details(self):
+        print("\n========= Parking Slot Details =========")
+        for vehicle_type, slot_list in self.slots.items():
+            print("\nType: " + vehicle_type.upper())
+            for slot in slot_list:
+                if slot.is_available:
+                    print("Slot " + str(slot.slot_id) + ": [Available]")
                 else:
-                    print(f"{slot.slot_id}: [Occupied] by {slot.vehicle.reg_num}")
+                    print("Slot " + str(slot.slot_id) + ": [Occupied] by " + slot.vehicle.reg_num)
+
 
 def main():
-  lot = ParkingLot(2, 1, 1)
+    lot = ParkingLot(2, 1, 1)
 
-  v1 = vehicle("ABC-123", "car")
-  v2 = vehicle("XYZ-987", "car")
-  v3 = vehicle("PQR-111", "car")
+    while True:
+        print("--- Parking Lot Menu ---")
+        print("1. Park a vehicle")
+        print("2. Remove a vehicle")
+        print("3. View parking slot details")
+        print("4. Exit")
 
-  lot.parkvehicle(v1)
-  lot.parkvehicle(v2)
-  lot.parkvehicle(v3)
-  lot.getDetail()
+        choice = input("Enter your choice (1-4): ")
 
-  lot.removeV(1)
+        if choice == "1":
+            reg_num = input("Enter vehicle registration number: ")
+            v_type = input("Enter vehicle type (car/bike/truck): ").lower()
+            vehicle = Vehicle(reg_num, v_type)
+            lot.park_vehicle(vehicle)
 
-  lot.getDetail()
+        elif choice == "2":
+            try:
+                slot_id = int(input("Enter slot ID to remove vehicle from: "))
+                lot.remove_vehicle(slot_id)
+            except ValueError:
+                print("Invalid input. Please enter a numeric slot ID.")
+
+        elif choice == "3":
+            lot.get_details()
+
+        elif choice == "4":
+            print("Exiting the program. Goodbye!")
+            break
+
+        else:
+            print("Invalid choice. Please enter a number between 1 and 4.")
+
 
 main()
 
