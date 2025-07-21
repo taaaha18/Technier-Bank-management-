@@ -21,7 +21,9 @@ class queue:
         self.items.append(vehicle)
 
     def deque(self):
-        return self.items.pop(0) if not self.isempty() else None
+        if not self.isempty():
+             return self.items.pop(0)
+        else None
 
     def isempty(self):
         return len(self.items) == 0
