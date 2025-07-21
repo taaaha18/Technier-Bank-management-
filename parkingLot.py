@@ -26,7 +26,11 @@ class queue:
         else None
 
     def isempty(self):
-        return len(self.items) == 0
+       if len(self.items) == 0:
+          return True
+       else:
+         return False
+
 
 
 class parkingSlot:
